@@ -19,4 +19,10 @@ describe "params" do
   it "should include path params" do
     @app.mock.get("/oh").body.should == { 'path' => 'oh' }.inspect
   end
+  
+  it "should handle xml posts as params" do
+    xml = "<product><name>Chair</name></product>"
+    opts = {"CONTENT_TYPE" => "application/xml", :input => xml}
+    @app.mock.get("/",opts).body.should == {'product' => {'name' => 'Chair'}}.inspect
+  end
 end
