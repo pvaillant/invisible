@@ -14,6 +14,15 @@ of this class represents a runnable application.
    end
  end
 
+You can also build a restful application easily.
+
+app = Invisible.new do
+  rest :product
+end
+
+This expects to find a Product class that includes DataMapper::Resource. Support
+for ActiveRecord based models is planned.
+
 == Build an app in a file
 DSL like Sinatra is also supported, put all your `get`, `post`, `layout` in your
 naked file and Invisible will do the method_missing magic for you.
@@ -40,3 +49,4 @@ Ruby License, http://www.ruby-lang.org/en/LICENSE.txt.
 
 === Credits
 Invisible is copyright Marc-Andre Cournoyer <macournoyer@gmail.com>
+rest extensions copyright Paul Vaillant <paul.vaillant@gmail.com>
