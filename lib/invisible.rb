@@ -1,6 +1,8 @@
 require "rubygems"
 require "thin"
 require "markaby"
+require "english/inflect"
+require "invisible/core_ext"
 
 # = The Invisible framework class
 # If Camping is a micro-framwork at 4K then Invisible is a pico-framework of 2K.
@@ -76,6 +78,57 @@ class Invisible
     yield
     @with.pop
   end
+  
+  # Implements restful resource routes that are ActiveResource compatible
+  # 
+  # rest "product"
+  # 
+  # This method expects to find a class Product, and creates the following routes:
+  # 
+  # get "/products.xml"
+  # get "/products/:id.xml"
+  # post "/products.xml"
+  # put "/products/:id.xml"
+  # delete "/products/:id.xml"
+  # 
+  # see http://api.rubyonrails.org/files/vendor/rails/activeresource/README.html
+  def rest(name)
+    name = name.to_s.singular
+    klass = nil
+    begin
+      klass_name = name.sub(/.*\./, '').gsub(/\/(.?)/) { "::" + $1.upcase }.gsub(/(^|_)(.)/) { $2.upcase }
+      klass = eval klass_name
+    rescue
+      warn "Failed to resolve #{klass_name}"
+      return
+    end
+    root = "/#{name.plural.downcase}"
+    with root do
+      get ".xml" do
+        record(klass,:all)
+      end
+      get "/:id.xml" do
+        record(klass,@path_params['id']) do |record|
+          [200, record]
+        end
+      end
+      post ".xml" do
+        record(klass,:new,@params[name]) do |record|
+          [201, '', {'Location' => "#{@request.scheme}://#{@request.host}#{root}/#{record.id}.xml"}]
+        end
+      end
+      put "/:id.xml" do
+        record(klass,@path_params['id'],@params[name]) do |record|
+          [204, ''] # the docs say this should be empty, but the client bombs if it's empty
+        end
+      end
+      delete "/:id.xml" do
+        record(klass,@path_params['id'],:destroy) do
+          [200, '']
+        end
+      end
+    end
+  end  
   
   # Render the response inside an action.
   # Render markaby by passing a block:
@@ -167,10 +220,61 @@ class Invisible
   end
   
   private
+    def record(klass, id = :new, data = nil)
+      # TODO: this supports datamapper, but not activerecord yet
+      code,body,hdrs = begin
+        if id == :all
+          [200, klass.all]
+        else
+          rec = (id == :new ? klass.new : klass.get(id.to_i))
+          if rec
+            if data
+              op = :save
+              if data == :destroy
+                op = :destroy
+              else
+                rec.attributes = data
+              end
+              if rec.send(op)
+                yield rec
+              else
+                # this returns <errors type="array"><error>...</error></errors>
+                [422, rec.errors.values]
+              end
+            else
+              yield rec
+            end
+          else
+            [404, 'Record Not Found']
+          end
+        end
+      rescue Exception => e
+        [500, e.message]
+      end
+      hdrs ||= {}
+      if String === body
+        hdrs.merge!("Content-Length" => "0") if body.size == 0
+        hdrs.merge!("Content-Type" => "text/plain")
+      elsif Array === body && code/100 == 4 # these are error messages
+        hdrs.merge!("Content-Type" => "text/xml")
+        # NOTE: the docs say it should have type="array" on errors, but that's not right
+        body = "<errors>" + body.map {|e| "<error>#{e}</error>"}.join("") + "</errors>"
+      else
+        # TODO: we should also support json format
+        hdrs.merge!("Content-Type" => "text/xml")
+        body = body.to_xml
+      end
+      @response = Rack::Response.new(body,code,hdrs)
+    end
+    
     def _call(env)
       @request  = Rack::Request.new(env)
       @response = Rack::Response.new
-      @params   = @request.params
+      if env["CONTENT_TYPE"] == "application/xml"
+        @params = Hash.from_xml(@request.env["rack.input"]) rescue {}
+      else
+        @params = @request.params
+      end
       if action = recognize(env["PATH_INFO"], @params["_method"] || env["REQUEST_METHOD"])
         @params.merge!(@path_params)
         action.last.call
@@ -181,8 +285,11 @@ class Invisible
     end
     
     def build_route(route)
-      pattern = route.split("/").inject('\/*') { |r, s| r << (s[0] == ?: ? '(\w+)' : s) + '\/*' } + '\/*'
-      [/^#{pattern}$/i, route.scan(/\:(\w+)/).flatten]
+      # NOTE: this builds routes slightly differently then the main invisible
+      # it only allows [a-z] in param names, but supports format extensions
+      # ex /products/:id.xml is valid with this code, but not the main build_route
+      pattern = route.gsub("/",'\/*').gsub(/:[a-z]+/,'(\w+)') + '\/*'
+      [/^#{pattern}$/i, route.scan(/\:([a-z]+)/).flatten]
     end
     
     def recognize(url, method)
