@@ -288,7 +288,7 @@ class Invisible
       # NOTE: this builds routes slightly differently then the main invisible
       # it only allows [a-z] in param names, but supports format extensions
       # ex /products/:id.xml is valid with this code, but not the main build_route
-      pattern = route.gsub("/",'\/*').gsub(/:[a-z]+/,'(\w+)') + '\/*'
+      pattern = '\/*' + route.gsub("/",'\/*').gsub(/:[a-z]+/,'(\w+)') + '\/*'
       [/^#{pattern}$/i, route.scan(/\:([a-z]+)/).flatten]
     end
     
