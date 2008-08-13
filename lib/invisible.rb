@@ -93,7 +93,7 @@ class Invisible
   # delete "/products/:id.:format"
   # 
   # see http://api.rubyonrails.org/files/vendor/rails/activeresource/README.html
-  def rest(name)
+  def rest(name,options = {})
     name = name.to_s.singular
     klass = nil
     begin
@@ -117,17 +117,17 @@ class Invisible
         record(klass,:new,@params[name]) do |record|
           [201, '', {'Location' => "#{@request.scheme}://#{@request.host}#{root}/#{record.id}.#{@path_params['format']}"}]
         end
-      end
+      end unless options[:readonly]
       put "/:id.:format" do
         record(klass,@path_params['id'],@params[name]) do |record|
           [204, ''] # the docs say this should be empty, but the client bombs if it's empty
         end
-      end
+      end unless options[:readonly]
       delete "/:id.:format" do
         record(klass,@path_params['id'],:destroy) do
           [200, '']
         end
-      end
+      end unless options[:readonly]
     end
   end  
   

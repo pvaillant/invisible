@@ -1,10 +1,10 @@
 require File.dirname(__FILE__) + "/spec_helper"
 require File.dirname(__FILE__) + "/rest_dm_helper"
 
-describe "REST DataMapper" do
+describe "REST Options" do
   before do
     @app = Invisible.new do
-      rest :dproduct
+      rest :dproduct, :readonly => true
     end
   end
 
@@ -24,39 +24,39 @@ describe "REST DataMapper" do
     @app.mock.get("/dproducts/2.js").body.should == "{ \"id\": 2, \"name\": \"Chair\", \"price\": 23.45 }"
   end
   
-  it "should return an updated product for PUT /products/2.xml" do
+  it "should prevent an updated product for PUT /products/2.xml" do
     xml = "<dproduct><id>2</id><name>Chair</name><price>9.99</price></dproduct>"
     opts = {'CONTENT_TYPE' => "application/xml", :input => xml}
-    @app.mock.put("/dproducts/2.xml", opts).status.should == 204
+    @app.mock.put("/dproducts/2.xml", opts).status.should == 404
   end
 
-  it "should return an updated product for PUT /products/2.js" do
+  it "should prevent an updated product for PUT /products/2.js" do
     json = "{dproduct: {id: 2, name: 'Chair', price: 9.99}}"
     opts = {'CONTENT_TYPE' => "application/json", :input => json}
-    @app.mock.put("/dproducts/2.js", opts).status.should == 204
+    @app.mock.put("/dproducts/2.js", opts).status.should == 404
   end
 
-  it "should return a Location for a new product for POST /products.xml" do
+  it "should not return a Location for a new product for POST /products.xml" do
     xml = "<dproduct><id>3</id><name>Chair</name><price>9.99</price></dproduct>"
     opts = {'CONTENT_TYPE' => "application/xml", :input => xml}
     response = @app.mock.post("/dproducts.xml", opts)
-    response.status.should == 201
-    response.headers['Location'].should == "http://example.org/dproducts/3.xml"
+    response.status.should == 404
+    response.headers['Location'].should_not == "http://example.org/dproducts/3.xml"
   end
 
-  it "should return a Location for a new product for POST /products.js" do
+  it "should not return a Location for a new product for POST /products.js" do
     json = "{dproduct: {id: 3, name: 'Chair', price: 9.99}}"
     opts = {'CONTENT_TYPE' => "application/json", :input => json}
     response = @app.mock.post("/dproducts.js", opts)
-    response.status.should == 201
-    response.headers['Location'].should == "http://example.org/dproducts/3.js"
+    response.status.should == 404
+    response.headers['Location'].should_not == "http://example.org/dproducts/3.js"
   end
 
-  it "should return success for deleting product DELETE /products/2.xml" do
-    @app.mock.delete("/dproducts/2.xml").status == 200
+  it "should prevent success for deleting product DELETE /products/2.xml" do
+    @app.mock.delete("/dproducts/2.xml").status == 404
   end
 
-  it "should return success for deleting product DELETE /products/2.js" do
-    @app.mock.delete("/dproducts/2.js").status == 200
+  it "should prevent success for deleting product DELETE /products/2.js" do
+    @app.mock.delete("/dproducts/2.js").status == 404
   end
 end
