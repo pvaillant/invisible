@@ -2,7 +2,7 @@ require File.dirname(__FILE__) + "/spec_helper"
 
 describe "REST ActiveRecords" do
   before do
-    # this mocks the DM functions that rest uses
+    # this mocks the AR functions that rest uses
     class Product
       @@data = {:name => "Chair", :price => "23.45"}
 
@@ -30,7 +30,7 @@ describe "REST ActiveRecords" do
       end
       
       def to_json
-        "{product: {id: #{@id}, name: '#{@name}', price: #{@price}}}"
+        "{ \"id\": #{@id}, \"name\": \"#{@name}\", \"price\": #{@price} }"
       end
 
       def save
@@ -51,8 +51,16 @@ describe "REST ActiveRecords" do
     @app.mock.get("/products.xml").body.should == "<products type='array'><product><id>1</id><name>Chair</name><price>23.45</price></product></products>"
   end
 
+  it "should return a list of products to GET /products.js" do
+    @app.mock.get("/products.js").body.should == "[{ \"id\": 1, \"name\": \"Chair\", \"price\": 23.45 }]"
+  end
+  
   it "should return a product for GET /products/2.xml" do
     @app.mock.get("/products/2.xml").body.should == "<product><id>2</id><name>Chair</name><price>23.45</price></product>"
+  end
+  
+  it "should return a product for GET /products/2.js" do
+    @app.mock.get("/products/2.js").body.should == "{ \"id\": 2, \"name\": \"Chair\", \"price\": 23.45 }"
   end
 
   it "should return an updated product for PUT /products/2.xml" do
@@ -71,5 +79,9 @@ describe "REST ActiveRecords" do
 
   it "should return success for deleting product DELETE /products/2.xml" do
     @app.mock.delete("/products/2.xml").status == 200
+  end
+
+  it "should return success for deleting product DELETE /products/2.js" do
+    @app.mock.delete("/products/2.js").status == 200
   end
 end

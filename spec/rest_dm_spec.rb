@@ -12,6 +12,9 @@ describe "REST DataMapper" do
         def to_xml
           "<products type='array'>" + @list.map {|prod| prod.to_xml}.join("") + "</products>"
         end
+        def to_json
+          "[" + @list.map {|prod| prod.to_json}.join(",") + "]"
+        end
       end
       
       def self.all
@@ -36,6 +39,10 @@ describe "REST DataMapper" do
       def to_xml
         "<product><id>#{@id}</id><name>#{@name}</name><price>#{@price}</price></product>"
       end
+      
+      def to_json
+        "{ \"id\": #{@id}, \"name\": \"#{@name}\", \"price\": #{@price} }"
+      end
 
       def save
         return true
@@ -55,10 +62,18 @@ describe "REST DataMapper" do
     @app.mock.get("/products.xml").body.should == "<products type='array'><product><id>1</id><name>Chair</name><price>23.45</price></product></products>"
   end
 
+  it "should return a list of products to GET /products.js" do
+    @app.mock.get("/products.js").body.should == "[{ \"id\": 1, \"name\": \"Chair\", \"price\": 23.45 }]"
+  end
+  
   it "should return a product for GET /products/2.xml" do
     @app.mock.get("/products/2.xml").body.should == "<product><id>2</id><name>Chair</name><price>23.45</price></product>"
   end
 
+  it "should return a product for GET /products/2.js" do
+    @app.mock.get("/products/2.js").body.should == "{ \"id\": 2, \"name\": \"Chair\", \"price\": 23.45 }"
+  end
+  
   it "should return an updated product for PUT /products/2.xml" do
     xml = "<product><id>2</id><name>Chair</name><price>9.99</price></product>"
     opts = {'CONTENT_TYPE' => "application/xml", :input => xml}
@@ -75,5 +90,9 @@ describe "REST DataMapper" do
 
   it "should return success for deleting product DELETE /products/2.xml" do
     @app.mock.delete("/products/2.xml").status == 200
+  end
+
+  it "should return success for deleting product DELETE /products/2.js" do
+    @app.mock.delete("/products/2.js").status == 200
   end
 end
