@@ -80,12 +80,26 @@ describe "REST DataMapper" do
     @app.mock.put("/products/2.xml", opts).status.should == 204
   end
 
+  it "should return an updated product for PUT /products/2.js" do
+    json = "{product: {id: 2, name: 'Chair', price: 9.99}}"
+    opts = {'CONTENT_TYPE' => "application/json", :input => json}
+    @app.mock.put("/products/2.js", opts).status.should == 204
+  end
+
   it "should return a Location for a new product for POST /products.xml" do
     xml = "<product><id>3</id><name>Chair</name><price>9.99</price></product>"
     opts = {'CONTENT_TYPE' => "application/xml", :input => xml}
     response = @app.mock.post("/products.xml", opts)
     response.status.should == 201
     response.headers['Location'].should == "http://example.org/products/3.xml"
+  end
+
+  it "should return a Location for a new product for POST /products.js" do
+    json = "{product: {id: 3, name: 'Chair', price: 9.99}}"
+    opts = {'CONTENT_TYPE' => "application/json", :input => json}
+    response = @app.mock.post("/products.js", opts)
+    response.status.should == 201
+    response.headers['Location'].should == "http://example.org/products/3.js"
   end
 
   it "should return success for deleting product DELETE /products/2.xml" do

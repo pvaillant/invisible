@@ -3,6 +3,7 @@ require "thin"
 require "markaby"
 require "english/inflect"
 require "invisible/core_ext"
+require "yaml"
 
 # = The Invisible framework class
 # If Camping is a micro-framwork at 4K then Invisible is a pico-framework of 2K.
@@ -114,7 +115,7 @@ class Invisible
       end
       post ".:format" do
         record(klass,:new,@params[name]) do |record|
-          [201, '', {'Location' => "#{@request.scheme}://#{@request.host}#{root}/#{record.id}.xml"}]
+          [201, '', {'Location' => "#{@request.scheme}://#{@request.host}#{root}/#{record.id}.#{@path_params['format']}"}]
         end
       end
       put "/:id.:format" do
@@ -304,6 +305,10 @@ class Invisible
       @response = Rack::Response.new
       if env["CONTENT_TYPE"] == "application/xml"
         @params = Hash.from_xml(@request.env["rack.input"]) rescue {}
+      elsif env["CONTENT_TYPE"] == "application/json"
+        # JSON is basically close enough to YAML that this should work 99% of the time
+        # see http://redhanded.hobix.com/inspect/jsonCloserToYamlButNoCigarThanksAlotWhitespace.html
+        @params = YAML.load(@request.env["rack.input"]) rescue {}
       else
         @params = @request.params
       end
