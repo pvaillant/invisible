@@ -104,25 +104,25 @@ class Invisible
     end
     root = "/#{name.plural.downcase}"
     with root do
-      get ".xml" do
+      get ".:format" do
         record(klass,:all)
       end
-      get "/:id.xml" do
+      get "/:id.:format" do
         record(klass,@path_params['id']) do |record|
           [200, record]
         end
       end
-      post ".xml" do
+      post ".:format" do
         record(klass,:new,@params[name]) do |record|
           [201, '', {'Location' => "#{@request.scheme}://#{@request.host}#{root}/#{record.id}.xml"}]
         end
       end
-      put "/:id.xml" do
+      put "/:id.:format" do
         record(klass,@path_params['id'],@params[name]) do |record|
           [204, ''] # the docs say this should be empty, but the client bombs if it's empty
         end
       end
-      delete "/:id.xml" do
+      delete "/:id.:format" do
         record(klass,@path_params['id'],:destroy) do
           [200, '']
         end
@@ -221,25 +221,29 @@ class Invisible
   
   private
     def record(klass, id = :new, data = nil)
-      # TODO: this supports datamapper, but not activerecord yet
+      # this supports datamapper and activerecord models
       code,body,hdrs = begin
         if id == :all
-          [200, klass.all]
+          list = (klass.respond_to?(:all) ? klass.all : klass.find(:all))
+          [200, list]
         else
-          rec = (id == :new ? klass.new : klass.get(id.to_i))
+          rec = if id == :new
+            klass.new
+          else
+            (klass.respond_to?(:get) ? klass.get(id.to_i) : klass.find(id.to_i))
+          end
           if rec
             if data
-              op = :save
-              if data == :destroy
-                op = :destroy
+              op = if data == :destroy
+                :destroy
               else
                 rec.attributes = data
+                :save
               end
               if rec.send(op)
                 yield rec
               else
-                # this returns <errors type="array"><error>...</error></errors>
-                [422, rec.errors.values]
+                [422, rec.errors.full_messages]
               end
             else
               yield rec
@@ -248,21 +252,49 @@ class Invisible
             [404, 'Record Not Found']
           end
         end
-      rescue Exception => e
-        [500, e.message]
+      rescue Exception => ex
+        [500, ex.message]
       end
       hdrs ||= {}
       if String === body
         hdrs.merge!("Content-Length" => "0") if body.size == 0
         hdrs.merge!("Content-Type" => "text/plain")
       elsif Array === body && code/100 == 4 # these are error messages
-        hdrs.merge!("Content-Type" => "text/xml")
-        # NOTE: the docs say it should have type="array" on errors, but that's not right
-        body = "<errors>" + body.map {|e| "<error>#{e}</error>"}.join("") + "</errors>"
+        if @path_params['format'] == 'xml'
+          hdrs.merge!("Content-Type" => "text/xml")
+          # NOTE: the docs say it should have type="array" on errors, but that's not right
+          body = "<errors>" + body.map {|err| "<error>#{err}</error>"}.join("") + "</errors>"
+        elsif @path_params['format'] == 'js'
+          hdrs.merge!("Content-Type" => "text/javascript")
+          # TODO: what should the format actually be?
+          body = "{errors: ['" + body.join("','") + "']}"
+        else
+          code = 400
+          hdrs = {'Content-Type' => "text/plain"}
+          body = "Unsupported format #{@path_params['format']}"
+        end
       else
-        # TODO: we should also support json format
-        hdrs.merge!("Content-Type" => "text/xml")
-        body = body.to_xml
+        if @path_params['format'] == 'xml'
+          hdrs.merge!("Content-Type" => "text/xml")
+          if Array === body
+            root = klass.to_s.gsub(/::/, '/').gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
+              gsub(/([a-z\d])([A-Z])/,'\1_\2').tr("-", "_").downcase.plural
+            body = "<#{root} type='array'>" + body.map {|x| x.to_xml}.join("") + "</#{root}>"
+          else
+            body = body.to_xml
+          end
+        elsif @path_params['format'] == 'js'
+          hdrs.merge!("Content-Type" => "text/javascript")
+          if Array === body
+            body = "[" + body.map {|x| x.to_json}.join(",") + "]"
+          else
+            body = body.to_json
+          end
+        else
+          code = 400
+          hdrs = {'Content-Type' => "text/plain"}
+          body = "Unsupported format #{@path_params['format']}"
+        end
       end
       @response = Rack::Response.new(body,code,hdrs)
     end
