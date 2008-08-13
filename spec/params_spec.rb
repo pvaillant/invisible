@@ -25,4 +25,10 @@ describe "params" do
     opts = {"CONTENT_TYPE" => "application/xml", :input => xml}
     @app.mock.get("/",opts).body.should == {'product' => {'name' => 'Chair'}}.inspect
   end
+
+  it "should handle json posts as params" do
+    json = "{product: {name: 'Chair'}}"
+    opts = {"CONTENT_TYPE" => "application/json", :input => json}
+    @app.mock.get("/",opts).body.should == {'product' => {'name' => 'Chair'}}.inspect
+  end
 end
