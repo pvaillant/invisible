@@ -86,11 +86,11 @@ class Invisible
   # 
   # This method expects to find a class Product, and creates the following routes:
   # 
-  # get "/products.xml"
-  # get "/products/:id.xml"
-  # post "/products.xml"
-  # put "/products/:id.xml"
-  # delete "/products/:id.xml"
+  # get "/products.:format"
+  # get "/products/:id.:format"
+  # post "/products.:format"
+  # put "/products/:id.:format"
+  # delete "/products/:id.:format"
   # 
   # see http://api.rubyonrails.org/files/vendor/rails/activeresource/README.html
   def rest(name)
